@@ -1,0 +1,5 @@
+/test/stb/
+/test/unpkg
+/test/unpkg.exe
+premake5
+premake5.exe

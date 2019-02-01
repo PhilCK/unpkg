@@ -1,0 +1,24 @@
+
+# Setup Workspace
+
+
+[stb-utils]
+url = "https://github.com/nothings/stb.git"
+type = "git"
+
+
+# Premake
+
+
+[premake-binary]
+url = "https://github.com/premake/premake-core/releases/download/v5.0.0-alpha13/premake-5.0.0-alpha13-macosx.tar.gz"
+type = "download"
+select = "premake5"
+platform = "osx"
+
+
+[premake-data]
+url = "https://github.com/plainolddata/premake-data.git"
+type = "git"
+select = "premake5.lua"
+target = "./premake5.lua"
