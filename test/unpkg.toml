@@ -12,13 +12,21 @@ type = "git"
 
 [premake-binary]
 url = "https://github.com/premake/premake-core/releases/download/v5.0.0-alpha13/premake-5.0.0-alpha13-macosx.tar.gz"
-type = "download"
+type = "tar"
 select = "premake5"
-platform = "osx"
+platform = "macOS"
 
 
 [premake-data]
-url = "https://github.com/plainolddata/premake-data.git"
+url = "https://github.com/PlainOldData/premake_data.git"
 type = "git"
 select = "premake5.lua"
-target = "./premake5.lua"
+
+
+type = [git,tar,zip,file]
+
+git
+select
+
+tar
+select=*

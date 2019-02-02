@@ -10,40 +10,46 @@ Basically for a given project I will likely have some binary data, some
 git repo, for example a premake executable, or bulid script, or a 3rd party
 repo.
 
+## What
+
+- Unpkg uses [TOML](https://github.com/toml-lang/toml) for data description.
+- Unpkg is C89 ish. Meaning I'm not 100%, but it works on the compilers I use.
+- Unpkg has no command line options.
+- Unpkg only looks for `unpkg.toml`, edit the source if you wish to change that.
+- Unpkg will `git clone <repo>`.
+- Unpkg will _not_ sync repos, you have todo that.
+- Unpkg can clone a repo and select a single file.
+- Unpkg will download an archive and unzip.
+- Unpkg will _not_ stop you overwritting archive if called again.
+- Unpkg can download an archive and select a single file.
+- Unpkg does not cache diddle or squat.
+
 ## Why
 
+- I'm stupid.
 - I don't like subtrees.
 - I don't like submodules.
 - I don't like setup bash/bat scripts.
 - I don't like extra dependencies.
-- I don't like complex cmd line programs.
-- I'm stupid.
+- I don't like complex cmd line programs. 
 - I just want to easily setup a workspace, using the compiler I already have.
 
-## Minimal Help
+## How
 
-- Will `git clone <repo>`.
-- Will _not_ sync repo, you have todo that.
-- Can clone a repo and select a single file.
-- Will download an archive and unzip.
-- Will _not_ stop you overwritting archive if called again.
-- Can download an archive and select a single file.
-
-## Usage
-
-- add unpkg.toml to a directory and describe your data. example in `test/`.
-- call `unpkg`.
-- start working.
+- Build unpkg using the super complex instructions and custom build setup below.
+- Add `unpkg.toml` to a directory and describe your data. Example in `test/`.
+- Copy the exeutable to the directory, or add it to your path env var.
+- Call `unpkg`.
+- Start working.
+- If you edit something you got via `unpkg` you have to deal with it.
 
 ## Issues
 
-- The TOML parsing needs work.
+- The TOML parsing needs work, it can be fooled easily.
 - Can only select a single file currently.
 - Very untested.
 
 ## Build
-
-Unpkg file is a simple C file, to build ... 
 
 with Clang ...
 

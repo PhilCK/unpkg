@@ -12,6 +12,15 @@
 #endif
 
 
+#if defined(__APPLE__)
+const char *platform = "macOS";
+#elif defined(__linux__)
+const char *platform = "Linux";
+#elif defined(_WIN32)
+const char *platform = "Windows";
+#endif
+
+
 /* ----------------------------------------------------------------- Parse -- */
 
 
@@ -280,7 +289,7 @@ int
 download(
         struct setpkg_data *d)
 {
-        printf("-----------------------------------------[Unpkg:Download]--\n");
+        printf("\n-------------------------------------[Unpkg:Download]--\n\n");
 
         char cmd[4096] = {0};
         int l = 0;
@@ -299,16 +308,27 @@ download(
                 l = snprintf(cmd, sizeof(cmd), fmt, d->url_len, d->url);
 
                 if(l < sizeof(cmd)) {
-                        #ifndef _WIN32
                         system(cmd);
-                        #else 
-                        System(cmd);
-                        #endif
                 }
         }
         else {
-                const char *tmp_dir = "/Users/PhilCK/Developer/setpkg";
-                const char *fmt = "mkdir -p /tmp/pkg_c && curl -L %.*s -o /tmp/pkg && tar -xf /tmp/pkg -C /tmp/pkg_c && cp /tmp/pkg_c/%.*s %.*s/%.*s";
+                if(!d->target) {
+                        d->target = "./";
+                        d->target_len = strlen("./");
+                }
+
+                const char *fmt = "mkdir -p /tmp/pkg_c"
+                        " && "
+                        "curl -L %.*s -o /tmp/pkg"
+                        " && "
+                        "tar -xf /tmp/pkg -C /tmp/pkg_c"
+                        " && "
+                        "cp /tmp/pkg_c/%.*s %.*s/%.*s"
+                        " && "
+                        "rm -rf /tmp/pkg_c"
+                        " && "
+                        "rm /tmp/pkg";
+
                 l = snprintf(
                         cmd,
                         sizeof(cmd),
@@ -317,8 +337,8 @@ download(
                         d->url,
                         d->select_len,
                         d->select,
-                        strlen(tmp_dir),
-                        tmp_dir,
+                        d->target_len,
+                        d->target,
                         d->select_len,
                         d->select);
         }
@@ -344,16 +364,47 @@ int
 git_clone(
         struct setpkg_data *d)
 {
-        printf("----------------------------------------------[Unpkg:Git]--\n");
+        printf("\n------------------------------------------[Unpkg:Git]--\n\n");
 
         char cmd[4096] = {0};
-        const char *fmt = "git clone %.*s";
-        int l = snprintf(cmd, sizeof(cmd), fmt, d->url_len, d->url);
+        int l;
 
-        if(DEBUG_PRINT) {
-                printf("%s\n", cmd);
+        if(!d->select) {
+                const char *fmt = "git clone %.*s";
+                l = snprintf(cmd, sizeof(cmd), fmt, d->url_len, d->url);
+
+                if(DEBUG_PRINT) {
+                        printf("%s\n", cmd);
+                }
         }
-        
+        else {
+                if(!d->target) {
+                        d->target = "./";
+                        d->target_len = strlen("./");
+                }
+
+                const char *fmt = "mkdir -p /tmp/pkg_c"
+                        " && "
+                        "git clone %.*s /tmp/pkg_c"
+                        " && "
+                        "cp /tmp/pkg_c/%.*s %.*s/%.*s"
+                        " && "
+                        "rm -rf /tmp/pkg_c";
+
+                l = snprintf(
+                        cmd,
+                        sizeof(cmd),
+                        fmt,
+                        d->url_len,
+                        d->url,
+                        d->select_len,
+                        d->select,
+                        d->target_len,
+                        d->target,
+                        d->select_len,
+                        d->select);
+        }
+
         if(l < sizeof(cmd)) {
                 #ifndef _WIN32
                 system(cmd);
@@ -462,7 +513,7 @@ main(
                 }
         }
 
-        printf("---------------------------------------------[Unpkg:Done]--\n");
+        printf("\n------------------------------------------[Unpkg:Done]--\n\n");
 
         /* clean up */
         if(DEBUG_PRINT) {
