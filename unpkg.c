@@ -3,12 +3,15 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 /* ---------------------------------------------------------------- Config -- */
 
 
 #ifndef DEBUG_PRINT
-#define DEBUG_PRINT 0
+#define DEBUG_PRINT 1
 #endif
 
 
@@ -19,6 +22,13 @@ const char *platform = "Linux";
 #elif defined(_WIN32)
 const char *platform = "Windows";
 #endif
+
+
+/* on launch check these */
+int has_git = 0;
+int has_curl = 0;
+int has_tar = 0;
+int has_unzip = 0;
 
 
 /* ----------------------------------------------------------------- Parse -- */
@@ -163,6 +173,9 @@ struct setpkg_data {
 
         const char *select;
         int select_len;
+
+        const char *platform;
+        int platform_len;
 };
 
 
@@ -294,15 +307,7 @@ download(
         char cmd[4096] = {0};
         int l = 0;
 
-        /* tmp */
-        #ifdef _WIN32
-        const char *tmp = "C:/";
-        #else 
-        const char *tmp = "/tmp/";
-        #endif
-
         /* download */
-        #ifdef __APPLE__
         if(!d->select) {
                 const char *fmt = "curl -L %.*s\n";
                 l = snprintf(cmd, sizeof(cmd), fmt, d->url_len, d->url);
@@ -313,10 +318,16 @@ download(
         }
         else {
                 if(!d->target) {
+                        #ifndef _WIN32
                         d->target = "./";
-                        d->target_len = strlen("./");
+                        #else
+                        d->target = ".\\";
+                        #endif
+
+                        d->target_len = strlen(d->target);
                 }
 
+                #ifndef _WIN32
                 const char *fmt = "mkdir -p /tmp/pkg_c"
                         " && "
                         "curl -L %.*s -o /tmp/pkg"
@@ -341,19 +352,40 @@ download(
                         d->target,
                         d->select_len,
                         d->select);
+
+                #else
+                const char *fmt = "rmdir /Q /S C:\\temp\\pkg_c"
+                        " & "
+                        "mkdir C:\\temp\\pkg_c"
+                        " && "
+                        "curl -L %.*s -o C:\\temp\\pkg"
+                        " && "
+                        "tar -xf C:\\temp\\pkg -C C:\\temp\\pkg_c\\"
+                        " && "
+                        "copy C:\\temp\\pkg_c\\%.*s %.*s"
+                        " && "
+                        "rmdir /Q /S C:\\temp\\pkg_c";
+
+                l = snprintf(
+                        cmd,
+                        sizeof(cmd),
+                        fmt,
+                        d->url_len,
+                        d->url,
+                        d->select_len,
+                        d->select,
+                        d->target_len,
+                        d->target);
+
+                #endif
         }
-        #endif
 
         if(DEBUG_PRINT) {
-                printf("%s\n", cmd);
+                printf("Archive %d CMD: %s\n", l, cmd);
         }
 
         if(l < sizeof(cmd)) {
-                #ifndef _WIN32
                 system(cmd);
-                #else 
-                System(cmd);
-                #endif
         }
 
         return 1;
@@ -379,10 +411,39 @@ git_clone(
         }
         else {
                 if(!d->target) {
+                        #ifndef _WIN32
                         d->target = "./";
-                        d->target_len = strlen("./");
+                        #else
+                        d->target = ".\\";
+                        #endif
+
+                        d->target_len = strlen(d->target);
                 }
 
+                #ifdef _WIN32
+                const char *fmt =
+                        "rmdir /Q /S C:\\temp\\pkg_c"
+                        " & "
+                        "mkdir C:\\temp\\pkg_c"
+                        " && "
+                        "git clone %.*s C:\\temp\\pkg_c"
+                        " && "
+                        "copy C:\\temp\\pkg_c\\%.*s %.*s"
+                        " && "
+                        "rmdir /Q /S C:\\temp\\pkg_c";
+
+                l = snprintf(
+                        cmd,
+                        sizeof(cmd),
+                        fmt,
+                        d->url_len,
+                        d->url,
+                        d->select_len,
+                        d->select,
+                        d->target_len,
+                        d->target);
+
+                #else
                 const char *fmt = "mkdir -p /tmp/pkg_c"
                         " && "
                         "git clone %.*s /tmp/pkg_c"
@@ -403,14 +464,15 @@ git_clone(
                         d->target,
                         d->select_len,
                         d->select);
+                #endif
         }
 
         if(l < sizeof(cmd)) {
-                #ifndef _WIN32
+                if(DEBUG_PRINT) {
+                        printf("CMD: %s\n", cmd);
+                }
+
                 system(cmd);
-                #else 
-                System(cmd);
-                #endif
         }
 
         return 1;
@@ -426,6 +488,22 @@ main(
         const char **argv)
 {
         printf("Unpkg\n");
+        fflush(stdout);
+        //setvbuf(NULL, NULL, _IONBF, 0);
+
+        /* config */
+        has_git = system("git --version");
+        has_curl = system("curl --version");
+        has_tar = system("tar --version");
+        has_unzip = system("unzifdadp --version");
+
+        setvbuf(stdout, NULL, _IONBF, 0);
+        fflush(stdout);
+
+        printf("Has Git %d\n", has_git);
+        printf("Has cURL %d\n", has_curl);
+        printf("Has Tar %d\n", has_tar);
+        printf("Has UnZip %d\n", has_tar);
 
         /* open */
         FILE *f = fopen("unpkg.toml", "rb");
@@ -467,7 +545,7 @@ main(
                 /* if quitting we might have a pending table to process */
                 if(n.type == AST_TABLE || (!parsed && pkg.name_len)) {
                         /* is pkg ready */
-                        if(pkg.name_len) {
+                        if(pkg.name_len && strncmp(pkg.platform, platform, pkg.platform_len) == 0) {
                                 if(DEBUG_PRINT) {
                                         const char *fmt = "process tab %.*s\n";
                                         printf(fmt, pkg.name_len, pkg.name);
@@ -479,7 +557,7 @@ main(
                                 if(strncmp(type, "git", len) == 0) {
                                         git_clone(&pkg);
                                 }
-                                else if(strncmp(type, "download", len) == 0) {
+                                else if(strncmp(type, "archive", len) == 0) {
                                         download(&pkg);
                                 }
                         }
@@ -506,6 +584,10 @@ main(
                                 pkg.select = n.kv.value;
                                 pkg.select_len = n.kv.value_len;
                         }
+                        else if(strncmp(n.kv.key, "platform", n.kv.key_len) == 0) {
+                                pkg.platform = n.kv.value;
+                                pkg.platform_len = n.kv.value_len;
+                        }
                 }
 
                 if(!parsed) {
@@ -513,7 +595,7 @@ main(
                 }
         }
 
-        printf("\n------------------------------------------[Unpkg:Done]--\n\n");
+        printf("\n-----------------------------------------[Unpkg:Done]--\n\n");
 
         /* clean up */
         if(DEBUG_PRINT) {

@@ -42,29 +42,45 @@ repo.
 - Call `unpkg`.
 - Start working.
 - If you edit something you got via `unpkg` you have to deal with it.
+- `unpkg <insert pkg name>` if you only want to process one item.
+
+## UNPKG Doc
+
+- A `type` can be `git`, or `archive`.
+- A `url` points to where the resources is.
+- `select` is not valid if an archive is a single file.
+- `platform` can be `Windows`,`Linux`, or `macOS`.
 
 ## Issues
 
 - The TOML parsing needs work, it can be fooled easily.
-- Can only select a single file currently.
+- Can only select a single file currently. BOO!
 - Very untested.
+- Single threaded.
 
 ## Build
 
-with Clang ...
+with Clang
 
 ```
 clang unpkg.c -o unpkg
 ```
 
-With GCC ...
+With GCC
 
 ```
 gcc unpkg.c -o unpkg
 ```
 
-With MSVS ...
+With MSVS you can do from command line, you may have to run something like
+this first in a cmd prompt.
 
 ```
-/* not tested atm */
+"C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvars64.bat"
+```
+
+then you can do
+
+```
+cl unpkg.c
 ```
