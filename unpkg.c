@@ -299,6 +299,119 @@ parse_file(
 
 
 int
+cmd(const char * cmd) {
+        FILE *pipe = popen(cmd, "r");
+        int success = 0;
+
+        char buf[128];
+
+        if(pipe) {
+                while(fgets(buf, sizeof(buf), pipe) != NULL) {
+                        success = 1;
+                }
+        }
+
+        pclose(pipe);
+
+        return success;
+};
+
+
+int
+cmd_mkdir_tmp() {
+        char buf[4096] = {0};
+        #ifndef _WIN32
+        snprintf(buf, sizeof(buf), "mkdir -v -p /tmp/unpkg");
+        int ret = cmd(buf);
+        if(DEBUG_PRINT) {
+                printf("CMD %d: %s\n", ret, buf);
+        };
+        return ret;
+        #endif
+}
+
+int
+cmd_curl(const char *url, int url_len) {
+        char buf[4096] = {0};
+        snprintf(buf, sizeof(buf), "curl -L %.*s", url_len, url);
+        int ret = cmd(buf);
+        if(DEBUG_PRINT) {
+                printf("CMD %d: %s\n", ret, buf);
+        };
+        return ret;
+}
+
+
+int
+cmd_curl_tmp(const char *url, int url_len) {
+        char buf[4096] = {0};
+        #ifndef _WIN32
+        snprintf(buf, sizeof(buf), "curl -L %.*s -o /tmp/unpkg_f && echo 1", url_len, url);
+        int ret = cmd(buf);
+        if(DEBUG_PRINT) {
+                printf("CMD %d: %s\n", ret, buf);
+        };
+        return ret;
+        #endif
+}
+
+
+int
+cmd_tar_tmp() {
+        char buf[4096] = {0};
+        snprintf(buf, sizeof(buf), "tar -v -xf /tmp/unpkg_f -C /tmp/unpkg");
+        int ret = cmd(buf);
+        if(DEBUG_PRINT) {
+                printf("CMD %d: %s\n", ret, buf);
+        };
+        return ret;
+}
+
+int
+cmd_cp(const char *src, int src_len, const char *dst_dir, int dst_dir_len) {
+        char buf[4096] = {0};
+        snprintf(
+                buf,
+                sizeof(buf),
+                "cp -v /tmp/unpkg/%.*s %.*s/%.*s",
+                src_len,
+                src,
+                dst_dir_len,
+                dst_dir,
+                src_len,
+                src);
+        int ret = cmd(buf);
+        if(DEBUG_PRINT) {
+                printf("CMD %d: %s\n", ret, buf);
+        };
+        return ret;
+}
+
+int
+cmd_rm_tmp_dir() {
+        char buf[4096] = {0};
+        snprintf(buf, sizeof(buf), "rm -rf -v /tmp/unpkg");
+         int ret = cmd(buf);
+        if(DEBUG_PRINT) {
+                printf("CMD %d: %s\n", ret, buf);
+        };
+        return ret; 
+}
+
+
+int
+cmd_rm_tmp_file() {
+        char buf[4096] = {0};
+        snprintf(buf, sizeof(buf), "rm -v /tmp/unpkg_f");
+        int ret = cmd(buf);
+        if(DEBUG_PRINT) {
+                printf("CMD %d: %s\n", ret, buf);
+        };
+        return ret; 
+}
+
+
+int
 download(
         struct setpkg_data *d)
 {
@@ -309,12 +422,7 @@ download(
 
         /* download */
         if(!d->select) {
-                const char *fmt = "curl -L %.*s\n";
-                l = snprintf(cmd, sizeof(cmd), fmt, d->url_len, d->url);
-
-                if(l < sizeof(cmd)) {
-                        system(cmd);
-                }
+                return cmd_curl(d->url, d->url_len);  
         }
         else {
                 if(!d->target) {
@@ -327,65 +435,13 @@ download(
                         d->target_len = strlen(d->target);
                 }
 
-                #ifndef _WIN32
-                const char *fmt = "mkdir -p /tmp/pkg_c"
-                        " && "
-                        "curl -L %.*s -o /tmp/pkg"
-                        " && "
-                        "tar -xf /tmp/pkg -C /tmp/pkg_c"
-                        " && "
-                        "cp /tmp/pkg_c/%.*s %.*s/%.*s"
-                        " && "
-                        "rm -rf /tmp/pkg_c"
-                        " && "
-                        "rm /tmp/pkg";
-
-                l = snprintf(
-                        cmd,
-                        sizeof(cmd),
-                        fmt,
-                        d->url_len,
-                        d->url,
-                        d->select_len,
-                        d->select,
-                        d->target_len,
-                        d->target,
-                        d->select_len,
-                        d->select);
-
-                #else
-                const char *fmt = "rmdir /Q /S C:\\temp\\pkg_c"
-                        " & "
-                        "mkdir C:\\temp\\pkg_c"
-                        " && "
-                        "curl -L %.*s -o C:\\temp\\pkg"
-                        " && "
-                        "tar -xf C:\\temp\\pkg -C C:\\temp\\pkg_c\\"
-                        " && "
-                        "copy C:\\temp\\pkg_c\\%.*s %.*s"
-                        " && "
-                        "rmdir /Q /S C:\\temp\\pkg_c";
-
-                l = snprintf(
-                        cmd,
-                        sizeof(cmd),
-                        fmt,
-                        d->url_len,
-                        d->url,
-                        d->select_len,
-                        d->select,
-                        d->target_len,
-                        d->target);
-
-                #endif
-        }
-
-        if(DEBUG_PRINT) {
-                printf("Archive %d CMD: %s\n", l, cmd);
-        }
-
-        if(l < sizeof(cmd)) {
-                system(cmd);
+                cmd_rm_tmp_dir();
+                cmd_mkdir_tmp();
+                cmd_curl_tmp(d->url, d->url_len);
+                cmd_tar_tmp();
+                cmd_cp(d->select, d->select_len, d->target, d->target_len);
+                cmd_rm_tmp_dir();
+                cmd_rm_tmp_file();
         }
 
         return 1;
@@ -487,23 +543,27 @@ main(
         int argc, 
         const char **argv)
 {
-        printf("Unpkg\n");
-        fflush(stdout);
-        //setvbuf(NULL, NULL, _IONBF, 0);
+        /* setup */
+        freopen("/dev/null", "w", stderr);
 
-        /* config */
-        has_git = system("git --version");
-        has_curl = system("curl --version");
-        has_tar = system("tar --version");
-        has_unzip = system("unzifdadp --version");
-
-        setvbuf(stdout, NULL, _IONBF, 0);
-        fflush(stdout);
+        /* call help to check if programs exist */
+        has_git = cmd("git --help");
+        has_curl = cmd("curl --help");
+        has_tar = cmd("tar --help");
+        has_unzip = cmd("unzip -h");
 
         printf("Has Git %d\n", has_git);
         printf("Has cURL %d\n", has_curl);
         printf("Has Tar %d\n", has_tar);
-        printf("Has UnZip %d\n", has_tar);
+        printf("Has UnZip %d\n", has_unzip);
+     
+
+        printf("Unpkg\n");
+        fflush(stdout);
+        //setvbuf(NULL, NULL, _IONBF, 0);
+
+        setvbuf(stdout, NULL, _IONBF, 0);
+        fflush(stdout);
 
         /* open */
         FILE *f = fopen("unpkg.toml", "rb");
