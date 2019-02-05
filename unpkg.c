@@ -184,7 +184,7 @@ starts_with_alpha(const char *str) {
         }
 
         return 0;
-};
+}
 
 
 struct ast_table {
@@ -377,7 +377,7 @@ cmd(const char * cmd) {
         }
 
         return success;
-};
+}
 
 
 int
@@ -645,7 +645,7 @@ git_clone(
                 #endif
         }
 
-        if(l < sizeof(cmd)) {
+        if(l < (int)sizeof(cmd)) {
                 if(DEBUG_PRINT) {
                         printf("CMD: %s\n", cmd);
                 }
