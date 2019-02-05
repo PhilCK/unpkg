@@ -50,10 +50,10 @@ repo.
 
 ```toml
 [package-name]
-url = "http://where_to_get_pkg" # Where to find the resource
-type = "git" # Can be git or archive
-select = "foo.json" # if you only want one file from the resource
-platform = "Windows" # This package is locked to this platform, `Linux` and `macOS` are also valid
+url = "http://where.com" # Where to find the resource
+type = "git"             # Can be git or archive
+select = "foo.json"      # if you only want one file from the resource
+platform = "Windows"     # Lock package to this platform, `Linux` and `macOS` are also valid
 ```
 ## Issues
 
