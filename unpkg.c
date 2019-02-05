@@ -1,20 +1,35 @@
 
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
 
 #ifdef _WIN32
 #include <windows.h>
 #endif
 
+
 /* ---------------------------------------------------------------- Config -- */
+/* 
+ * Platform and configuration settings etc.
+ */
 
 
+/* DEBUG_PRINT spews out alot of text - off by default */
 #ifndef DEBUG_PRINT
-#define DEBUG_PRINT 1
+#define DEBUG_PRINT 0
 #endif
 
 
+/* wrap MS's interface under POSIX's */
+#ifdef _WIN32
+#define popen _popen
+#define pclose _pclose
+#endif
+
+
+/* Platform idents */
 #if defined(__APPLE__)
 const char *platform = "macOS";
 #elif defined(__linux__)
@@ -24,15 +39,19 @@ const char *platform = "Windows";
 #endif
 
 
-/* on launch check these */
+/* Features - on launch check these */
 int has_git = 0;
 int has_curl = 0;
 int has_tar = 0;
 int has_unzip = 0;
 
+const char *target_tab = 0;
+
 
 /* ----------------------------------------------------------------- Parse -- */
-
+/*
+ * Unpkg needs to parse a TOML file, these are the helpers todo that.
+ */
 
 int
 is_whitespace(char c) {
@@ -295,15 +314,17 @@ parse_file(
 }
 
 
-/* --------------------------------------------------------------- Actions -- */
-
+/* -------------------------------------------------------------- Commands -- */
+/*
+ * The command line interactions.
+ */
 
 int
 cmd(const char * cmd) {
-        FILE *pipe = popen(cmd, "r");
+        FILE *pipe = popen(cmd, "rt");
         int success = 0;
 
-        char buf[128];
+        char buf[1024] = {0};
 
         if(pipe) {
                 while(fgets(buf, sizeof(buf), pipe) != NULL) {
@@ -320,24 +341,41 @@ cmd(const char * cmd) {
 int
 cmd_mkdir_tmp() {
         char buf[4096] = {0};
-        #ifndef _WIN32
-        snprintf(buf, sizeof(buf), "mkdir -v -p /tmp/unpkg");
+        snprintf(
+                buf,
+                sizeof(buf),
+                #ifndef _WIN32
+                "mkdir -v -p /tmp/unpkg"
+                #else
+                "mkdir C:\\temp\\unpkg"
+                #endif
+                );
+
         int ret = cmd(buf);
         if(DEBUG_PRINT) {
                 printf("CMD %d: %s\n", ret, buf);
         };
+
         return ret;
-        #endif
 }
+
 
 int
 cmd_curl(const char *url, int url_len) {
         char buf[4096] = {0};
-        snprintf(buf, sizeof(buf), "curl -L %.*s", url_len, url);
+
+        snprintf(
+                buf,
+                sizeof(buf),
+                "curl -L %.*s",
+                url_len,
+                url);
+
         int ret = cmd(buf);
         if(DEBUG_PRINT) {
                 printf("CMD %d: %s\n", ret, buf);
         };
+
         return ret;
 }
 
@@ -345,21 +383,41 @@ cmd_curl(const char *url, int url_len) {
 int
 cmd_curl_tmp(const char *url, int url_len) {
         char buf[4096] = {0};
-        #ifndef _WIN32
-        snprintf(buf, sizeof(buf), "curl -L %.*s -o /tmp/unpkg_f && echo 1", url_len, url);
+
+        snprintf(
+                buf,
+                sizeof(buf),
+                #ifndef _WIN32
+                "curl -L %.*s -o /tmp/unpkg_f && echo 1",
+                #else
+                "curl -L %.*s -o C:\\temp\\unpkg_f && echo 1",
+                #endif
+                url_len,
+                url);
+
         int ret = cmd(buf);
         if(DEBUG_PRINT) {
                 printf("CMD %d: %s\n", ret, buf);
         };
+
         return ret;
-        #endif
 }
 
 
 int
 cmd_tar_tmp() {
         char buf[4096] = {0};
-        snprintf(buf, sizeof(buf), "tar -v -xf /tmp/unpkg_f -C /tmp/unpkg");
+
+        snprintf(
+                buf,
+                sizeof(buf),
+                #ifndef _WIN32
+                "tar -v -xf /tmp/unpkg_f -C /tmp/unpkg"
+                #else
+                "tar -xf C:\\temp\\unpkg_f -C C:\\temp\\unpkg\\"
+                #endif
+                );
+
         int ret = cmd(buf);
         if(DEBUG_PRINT) {
                 printf("CMD %d: %s\n", ret, buf);
@@ -367,19 +425,28 @@ cmd_tar_tmp() {
         return ret;
 }
 
+
+
+
 int
 cmd_cp(const char *src, int src_len, const char *dst_dir, int dst_dir_len) {
         char buf[4096] = {0};
+
         snprintf(
                 buf,
                 sizeof(buf),
+                #ifndef _WIN32
                 "cp -v /tmp/unpkg/%.*s %.*s/%.*s",
+                #else
+                "copy C:\\temp\\unpkg\\%.*s %.*s\\%.*s",
+                #endif
                 src_len,
                 src,
                 dst_dir_len,
                 dst_dir,
                 src_len,
                 src);
+
         int ret = cmd(buf);
         if(DEBUG_PRINT) {
                 printf("CMD %d: %s\n", ret, buf);
@@ -387,11 +454,12 @@ cmd_cp(const char *src, int src_len, const char *dst_dir, int dst_dir_len) {
         return ret;
 }
 
+
 int
 cmd_rm_tmp_dir() {
         char buf[4096] = {0};
         snprintf(buf, sizeof(buf), "rm -rf -v /tmp/unpkg");
-         int ret = cmd(buf);
+        int ret = cmd(buf);
         if(DEBUG_PRINT) {
                 printf("CMD %d: %s\n", ret, buf);
         };
@@ -411,11 +479,19 @@ cmd_rm_tmp_file() {
 }
 
 
+/* --------------------------------------------------------------- Actions -- */
+/*
+ * Features of Unpkg, these are the actions that need to be performed from a
+ * unpkg.toml file.
+ */ 
+
 int
 download(
         struct setpkg_data *d)
 {
-        printf("\n-------------------------------------[Unpkg:Download]--\n\n");
+        printf("\n--[Unpkg:Download]--\n\n");
+
+        printf("Downloading %.*s\n", d->name_len, d->name);
 
         char cmd[4096] = {0};
         int l = 0;
@@ -452,7 +528,14 @@ int
 git_clone(
         struct setpkg_data *d)
 {
-        printf("\n------------------------------------------[Unpkg:Git]--\n\n");
+        printf("\n--[Unpkg:Git]--\n\n");
+
+        printf("Cloning %.*s\n", d->name_len, d->name);
+
+        if(!has_git) {
+                printf("Git not installed\n");
+                return 0;
+        }
 
         char cmd[4096] = {0};
         int l;
@@ -543,7 +626,21 @@ main(
         int argc, 
         const char **argv)
 {
+        printf("\n--[Unpkg:Env]--\n\n");
+
+        if(DEBUG_PRINT) {
+                int i;
+                for(i = 0; i < argc; ++i) {
+                        printf("ARG: %d. %s\n", i, argv[i]);
+                }
+        }
+
+        if(argc > 1) {
+                target_tab = argv[1];
+        }
+
         /* setup */
+        fflush(stdout);
         freopen("/dev/null", "w", stderr);
 
         /* call help to check if programs exist */
@@ -552,13 +649,11 @@ main(
         has_tar = cmd("tar --help");
         has_unzip = cmd("unzip -h");
 
-        printf("Has Git %d\n", has_git);
-        printf("Has cURL %d\n", has_curl);
-        printf("Has Tar %d\n", has_tar);
-        printf("Has UnZip %d\n", has_unzip);
-     
+        printf("Has Git %s\n", has_git ? "YES" : "NO");
+        printf("Has cURL %s\n", has_curl ? "YES" : "NO");
+        printf("Has Tar %s\n", has_tar ? "YES" : "NO");
+        printf("Has UnZip %s\n", has_unzip ? "YES" : "NO");
 
-        printf("Unpkg\n");
         fflush(stdout);
         //setvbuf(NULL, NULL, _IONBF, 0);
 
@@ -606,19 +701,21 @@ main(
                 if(n.type == AST_TABLE || (!parsed && pkg.name_len)) {
                         /* is pkg ready */
                         if(pkg.name_len && strncmp(pkg.platform, platform, pkg.platform_len) == 0) {
-                                if(DEBUG_PRINT) {
-                                        const char *fmt = "process tab %.*s\n";
-                                        printf(fmt, pkg.name_len, pkg.name);
-                                }
+                                if(!target_tab || strncmp(pkg.name, target_tab, pkg.name_len) == 0) {
+                                        if(DEBUG_PRINT) {
+                                                const char *fmt = "process tab %.*s\n";
+                                                printf(fmt, pkg.name_len, pkg.name);
+                                        }
 
-                                const char *type = pkg.type;
-                                int len = pkg.type_len;
+                                        const char *type = pkg.type;
+                                        int len = pkg.type_len;
 
-                                if(strncmp(type, "git", len) == 0) {
-                                        git_clone(&pkg);
-                                }
-                                else if(strncmp(type, "archive", len) == 0) {
-                                        download(&pkg);
+                                        if(strncmp(type, "git", len) == 0) {
+                                                git_clone(&pkg);
+                                        }
+                                        else if(strncmp(type, "archive", len) == 0) {
+                                                download(&pkg);
+                                        }
                                 }
                         }
 
@@ -655,7 +752,7 @@ main(
                 }
         }
 
-        printf("\n-----------------------------------------[Unpkg:Done]--\n\n");
+        printf("\n--[Unpkg:Done]--\n\n");
 
         /* clean up */
         if(DEBUG_PRINT) {
