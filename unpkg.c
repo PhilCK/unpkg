@@ -64,14 +64,19 @@ static void * stb__sbgrowf(void *arr, int increment, int itemsize)
 #endif
 
 
-/* wrap MS's interface under POSIX's */
+#ifndef DEBUG_PRINT_EXTRA_PARSE
+#define DEBUG_PRINT_EXTRA_PARSE 0
+#endif
+
+
+/* Wrap MS's interface under POSIX's. */
 #ifdef _WIN32
 #define popen _popen
 #define pclose _pclose
 #endif
 
 
-/* Platform idents */
+/* Platform idents. */
 #if defined(__APPLE__)
 const char *platform = "macOS";
 #elif defined(__linux__)
@@ -81,13 +86,19 @@ const char *platform = "Windows";
 #endif
 
 
-/* Features - on launch check these */
+/* Features - on launch check these. */
 int has_git = 0;
 int has_curl = 0;
 int has_tar = 0;
 int has_unzip = 0;
 
+
+/* This is argv[1], and will contains a target table. */
 const char *target_tab = 0;
+
+
+/* Default file unpkg looks for, change as desired. */
+const char *pkg_file = "unpkg.toml";
 
 
 /* ----------------------------------------------------------------- Parse -- */
@@ -95,11 +106,13 @@ const char *target_tab = 0;
  * Unpkg needs to parse a TOML file, these are the helpers todo that.
  */
 
+
 int
 is_whitespace(char c) {
         if(c == '\n') { return 1; }
         if(c == '\t') { return 1; }
         if(c == ' ')  { return 1; }
+        if(c == '\b') { return 1; }
         
         return 0;
 }
@@ -149,9 +162,7 @@ int
 starts_with_char(const char *str, char c) {
         int offset = 0;
 
-        while(str[offset] != c && str[offset] != '\n') {
-                offset += 1;
-        }
+        while(str[offset] != '\n' && is_whitespace(str[offset])) { ++offset; }
 
         return str[offset] == c ? 1 : 0;  
 }
@@ -184,6 +195,19 @@ starts_with_alpha(const char *str) {
         }
 
         return 0;
+}
+
+int
+only_whitespace(const char *str) {
+        int offset = 0;
+
+        while(str[offset] != '\n') {
+                if(!is_whitespace(str[offset])) {
+                        return 0;
+                }
+        }
+
+        return 1;
 }
 
 
@@ -219,27 +243,6 @@ struct ast_node {
 };
 
 
-struct setpkg_data {
-        const char *name;
-        int name_len;
-
-        const char *url;
-        int url_len;
-
-        const char *type;
-        int type_len;
-
-        const char *target;
-        int target_len;
-
-        const char *select;
-        int select_len;
-
-        const char *platform;
-        int platform_len;
-};
-
-
 int
 parse_file(
         struct ast_node *n,
@@ -251,16 +254,23 @@ parse_file(
         struct ast_node node = {0};
         node.type = AST_NONE;
 
-        /* comment */
         if(is_eof(curr[i])) {
-                if(DEBUG_PRINT) {
+                if(DEBUG_PRINT_EXTRA_PARSE) {
                         printf("EOF\n");
                 }
 
                 return 0;
         }
-        if(starts_with_char(curr, '#')) {
-                if(DEBUG_PRINT) {
+        else if(only_whitespace(curr)) {
+                if(DEBUG_PRINT_EXTRA_PARSE) {
+                        printf("Empty Line\n");
+                }
+
+                /* swallow line */
+                while(!is_eol(curr[i])) { ++i; }
+        }
+        else if(starts_with_char(curr, '#')) {
+                if(DEBUG_PRINT_EXTRA_PARSE) {
                         printf("Comment\n");
                 }
 
@@ -527,9 +537,31 @@ cmd_rm_tmp_file() {
  * unpkg.toml file.
  */ 
 
+
+struct pkg_data {
+        const char *name;
+        int name_len;
+
+        const char *url;
+        int url_len;
+
+        const char *type;
+        int type_len;
+
+        const char *target;
+        int target_len;
+
+        const char *select;
+        int select_len;
+
+        const char *platform;
+        int platform_len;
+};
+
+
 int
 download(
-        struct setpkg_data *d)
+        struct pkg_data *d)
 {
         printf("\n--[Unpkg:Download]--\n\n");
 
@@ -565,7 +597,7 @@ download(
 
 int
 git_clone(
-        struct setpkg_data *d)
+        struct pkg_data *d)
 {
         printf("\n--[Unpkg:Git]--\n\n");
 
@@ -660,7 +692,7 @@ git_clone(
 /* ----------------------------------------------------------- Application -- */
 
 
-struct setpkg_data *pkgs = {0};
+struct pkg_data *pkgs = {0};
 
 
 int
@@ -675,6 +707,8 @@ main(
                 for(i = 0; i < argc; ++i) {
                         printf("ARG: %d. %s\n", i, argv[i]);
                 }
+
+                printf("\n");
         }
 
         if(argc > 1) {
@@ -698,7 +732,7 @@ main(
         printf("Has UnZip %s\n", has_unzip ? "YES" : "NO");
 
         /* open */
-        FILE *f = fopen("unpkg.toml", "rb");
+        FILE *f = fopen(pkg_file, "rb");
 
         if(!f) {
                 printf("No setpkg file\n");
@@ -725,13 +759,12 @@ main(
         buf[size] = 0;
         fclose(f);
 
-        /* parse */
+        printf("\n--[Unpkg:Parse]--\n\n");
+
+        /* parse the toml */
         char *curr = buf;
         struct ast_node n;
         int curr_pkg = -1;
-
-        /* parse the TOML file */
-        printf("\n--[Unpkg:Parse]--\n\n");
 
         while(1) {
                 int parsed = parse_file(&n, &curr);
@@ -739,7 +772,7 @@ main(
                 /* new table or about to quit */
                 /* if quitting we might have a pending table to process */
                 if(n.type == AST_TABLE) {
-                        struct setpkg_data pkg = {0};
+                        struct pkg_data pkg = {0};
                         sb_push(pkgs, pkg);
 
                         curr_pkg += 1;
@@ -760,10 +793,6 @@ main(
                                 pkgs[curr_pkg].type = n.kv.value;
                                 pkgs[curr_pkg].type_len = n.kv.value_len;
                         }
-                        else if(strncmp(key, "target", key_len) == 0) {
-                                pkgs[curr_pkg].target = n.kv.value;
-                                pkgs[curr_pkg].target_len = n.kv.value_len;
-                        }
                         else if(strncmp(key, "select", key_len) == 0) {
                                 pkgs[curr_pkg].select = n.kv.value;
                                 pkgs[curr_pkg].select_len = n.kv.value_len;
@@ -780,20 +809,66 @@ main(
                 
         }
 
+        /* validate */
+        int i, j;
+        int count = sb_count(pkgs);
+
+        /* check for duplicate table entries */
+        for(i = 0; i < count; ++i) {
+                for(j = 0; j < count; ++j) {
+                        if(i == j) { continue; }
+
+                        const char * a = pkgs[i].name;
+                        const char * b = pkgs[j].name;
+
+                        if(strncmp(a, b, pkgs[j].name_len) == 0) {
+                                printf("Parse Fail - Duplicate Table Names\n");
+
+                                if(DEBUG_PRINT) {
+                                        printf(
+                                                "Dup Names: %.*s - %.*s\n",
+                                                pkgs[i].name_len,
+                                                a,
+                                                pkgs[j].name_len,
+                                                b);
+                                }
+
+                                return EXIT_FAILURE;
+                        }
+                }
+        }
+
+        /* check to see if target exists */
+        int target_idx = -1;
+        for(i = 0; i < count; ++i) {
+                if(!target_tab) {
+                        break;
+                }
+
+                if(strncmp(pkgs[i].name, target_tab, strlen(target_tab)) == 0) {
+                        target_idx = i;
+                        break;
+                }
+        }
+
+        if(target_tab) {
+                if(target_idx < 0) {
+                        printf("Table Not found\n");
+                        return EXIT_FAILURE;
+                }
+        }
+
+        /* end parse */
         printf("Done\n");
 
         /* get the packages */
-        int i;
-        int count = sb_count(pkgs);
-
         for(i = 0; i < count; ++i) {
-                
                 /* if target table has an os preference */
                 if(pkgs[i].platform) {
                         const char *pk_plat = pkgs[i].platform;
                         const char *th_plat = platform;
 
-                        if(strncmp(pk_plat, th_plat, strlen(th_plat) != 0)) {
+                        if(strncmp(pk_plat, th_plat, strlen(th_plat)) != 0) {
                                 continue;
                         }
                 }
@@ -822,11 +897,7 @@ main(
 
         printf("\n--[Unpkg:Done]--\n\n");
 
-        /* clean up */
-        if(DEBUG_PRINT) {
-                printf("Cleanup\n");
-        }
-
+        sb_free(pkgs);
         free(buf);
 
         return EXIT_SUCCESS;

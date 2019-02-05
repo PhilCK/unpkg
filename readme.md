@@ -50,14 +50,16 @@ repo.
 
 ```toml
 [package-name]           # Pkg name, used to select pkg manually
-url = "http://where.com" # Where to find the resource
+url = "http://*****.com" # Where to find the resource
 type = "git"             # Can be git or archive
 select = "foo.json"      # Optional: if you only want one file from the resource
 platform = "Windows"     # Optional: Lock package to this platform, `Linux` and `macOS` are also valid
 ```
 ## Issues
 
-- The TOML parsing needs work, it can be fooled easily.
+- Some issues with parsing.
+- No duplicate table checks.
+- Only supports unix style endings currently `\n`.
 - Can only select a single file currently. BOO!
 - Very untested.
 - Single threaded.
@@ -95,5 +97,5 @@ Additional work
 
 
 | Who | What | 
-|------------|------|   
+|-----|------|   
 | [Sean T.Barret](https://twitter.com/nothings) | [Stretch Buffer](https://github.com/nothings/stb/blob/master/stretchy_buffer.h) |
