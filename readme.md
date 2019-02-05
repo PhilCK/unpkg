@@ -48,6 +48,14 @@ repo.
 
 ## UNPKG Doc
 
+```toml
+[package-name]
+url = <http://where_to_get_pkg>
+type = <archive|git>
+select = <filename> # if you only want one file from the resource
+platform = <Windows|Linux|macOS> # If you only want this package on one platform
+```
+
 - A `type` can be `git`, or `archive`.
 - A `url` points to where the resources is.
 - `select` specifiy a single file you want from the `git` or `archive`
