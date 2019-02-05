@@ -386,6 +386,10 @@ cmd(const char * cmd) {
                 pclose(pipe);
         }
 
+        if(DEBUG_PRINT) {
+                printf("CMD %d: %s\n", success, cmd);
+        }
+
         return success;
 }
 
@@ -404,10 +408,6 @@ cmd_mkdir_tmp() {
                 );
 
         int ret = cmd(buf);
-        if(DEBUG_PRINT) {
-                printf("CMD %d: %s\n", ret, buf);
-        };
-
         return ret;
 }
 
@@ -424,10 +424,6 @@ cmd_curl(const char *url, int url_len) {
                 url);
 
         int ret = cmd(buf);
-        if(DEBUG_PRINT) {
-                printf("CMD %d: %s\n", ret, buf);
-        };
-
         return ret;
 }
 
@@ -448,10 +444,6 @@ cmd_curl_tmp(const char *url, int url_len) {
                 url);
 
         int ret = cmd(buf);
-        if(DEBUG_PRINT) {
-                printf("CMD %d: %s\n", ret, buf);
-        };
-
         return ret;
 }
 
@@ -466,18 +458,32 @@ cmd_tar_tmp() {
                 #ifndef _WIN32
                 "tar -v -xf /tmp/unpkg_f -C /tmp/unpkg"
                 #else
-                "tar -xf C:\\temp\\unpkg_f -C C:\\temp\\unpkg\\"
+                "tar -v -xf C:\\temp\\unpkg_f -C C:\\temp\\unpkg\\"
                 #endif
                 );
 
         int ret = cmd(buf);
-        if(DEBUG_PRINT) {
-                printf("CMD %d: %s\n", ret, buf);
-        };
         return ret;
 }
 
 
+int
+cmd_unzip_tmp() {
+        char buf[4096] = {0};
+
+        snprintf(
+                buf,
+                sizeof(buf),
+                #ifndef _WIN32
+                "unzip /tmp/unpkg_f -d /tmp/unpkg"
+                #else
+                "unzip C:\\temp\\unpkg_f -d C:\\temp\\unpkg\\"
+                #endif
+                );
+
+        int ret = cmd(buf);
+        return ret;
+}
 
 
 int
@@ -500,9 +506,6 @@ cmd_cp(const char *src, int src_len, const char *dst_dir, int dst_dir_len) {
                 src);
 
         int ret = cmd(buf);
-        if(DEBUG_PRINT) {
-                printf("CMD %d: %s\n", ret, buf);
-        };
         return ret;
 }
 
@@ -510,11 +513,18 @@ cmd_cp(const char *src, int src_len, const char *dst_dir, int dst_dir_len) {
 int
 cmd_rm_tmp_dir() {
         char buf[4096] = {0};
-        snprintf(buf, sizeof(buf), "rm -rf -v /tmp/unpkg");
+
+        snprintf(
+                buf,
+                sizeof(buf),
+                #ifndef _WIN32
+                "rm -rf -v /tmp/unpkg"
+                #else
+                "rmdir /Q /S C:\\temp\\unpkg && echo 1"
+                #endif
+                );
+
         int ret = cmd(buf);
-        if(DEBUG_PRINT) {
-                printf("CMD %d: %s\n", ret, buf);
-        };
         return ret; 
 }
 
@@ -522,12 +532,55 @@ cmd_rm_tmp_dir() {
 int
 cmd_rm_tmp_file() {
         char buf[4096] = {0};
-        snprintf(buf, sizeof(buf), "rm -v /tmp/unpkg_f");
+
+        snprintf(
+                buf,
+                sizeof(buf),
+                #ifndef _WIN32
+                "rm -v /tmp/unpkg_f"
+                #else
+                ""
+                #endif
+                );
+
         int ret = cmd(buf);
-        if(DEBUG_PRINT) {
-                printf("CMD %d: %s\n", ret, buf);
-        };
         return ret; 
+}
+
+
+int
+cmd_git_clone(const char *url, int url_len) {
+        char buf[4096] = {0};
+
+        snprintf(
+                buf,
+                sizeof(buf),
+                "git clone %.*s",
+                url_len,
+                url);
+
+        int ret = cmd(buf);
+        return ret;
+}
+
+
+int
+cmd_git_clone_tmp(const char *url, int url_len) {
+        char buf[4096] = {0};
+
+        snprintf(
+                buf,
+                sizeof(buf),
+                #ifndef _WIN32
+                "git clone %.*s /tmp/unpkg",
+                #else
+                "git clone %.*s C:\\temp\\unpkg\\",
+                #endif
+                url_len,
+                url);
+
+        int ret = cmd(buf);
+        return ret;
 }
 
 
@@ -572,6 +625,8 @@ download(
                 return cmd_curl(d->url, d->url_len);  
         }
         else {
+                int is_zip = strncmp("zip", &d->url[d->url_len - 3], 3) == 0;
+
                 if(!d->target) {
                         #ifndef _WIN32
                         d->target = "./";
@@ -585,7 +640,16 @@ download(
                 cmd_rm_tmp_dir();
                 cmd_mkdir_tmp();
                 cmd_curl_tmp(d->url, d->url_len);
-                cmd_tar_tmp();
+
+                /* win32 cmd line tar can handle zips so we try even if zip */
+                /* however in other cases we need to use unzip */
+                if(is_zip && has_unzip) {
+                        cmd_unzip_tmp();
+                }
+                else {
+                        cmd_tar_tmp();
+                }
+
                 cmd_cp(d->select, d->select_len, d->target, d->target_len);
                 cmd_rm_tmp_dir();
                 cmd_rm_tmp_file();
@@ -609,15 +673,9 @@ git_clone(
         }
 
         char cmd[4096] = {0};
-        int l;
 
         if(!d->select) {
-                const char *fmt = "git clone %.*s";
-                l = snprintf(cmd, sizeof(cmd), fmt, d->url_len, d->url);
-
-                if(DEBUG_PRINT) {
-                        printf("%s\n", cmd);
-                }
+                return cmd_git_clone(d->url, d->url_len);
         }
         else {
                 if(!d->target) {
@@ -630,62 +688,16 @@ git_clone(
                         d->target_len = strlen(d->target);
                 }
 
-                #ifdef _WIN32
-                const char *fmt =
-                        "rmdir /Q /S C:\\temp\\pkg_c"
-                        " & "
-                        "mkdir C:\\temp\\pkg_c"
-                        " && "
-                        "git clone %.*s C:\\temp\\pkg_c"
-                        " && "
-                        "copy C:\\temp\\pkg_c\\%.*s %.*s"
-                        " && "
-                        "rmdir /Q /S C:\\temp\\pkg_c";
+                cmd_rm_tmp_dir();
+                cmd_mkdir_tmp();
+                cmd_git_clone_tmp(d->url, d->url_len);
+                cmd_cp(d->select, d->select_len, d->target, d->target_len);
+                cmd_rm_tmp_dir();
 
-                l = snprintf(
-                        cmd,
-                        sizeof(cmd),
-                        fmt,
-                        d->url_len,
-                        d->url,
-                        d->select_len,
-                        d->select,
-                        d->target_len,
-                        d->target);
-
-                #else
-                const char *fmt = "mkdir -p /tmp/pkg_c"
-                        " && "
-                        "git clone %.*s /tmp/pkg_c"
-                        " && "
-                        "cp /tmp/pkg_c/%.*s %.*s/%.*s"
-                        " && "
-                        "rm -rf /tmp/pkg_c";
-
-                l = snprintf(
-                        cmd,
-                        sizeof(cmd),
-                        fmt,
-                        d->url_len,
-                        d->url,
-                        d->select_len,
-                        d->select,
-                        d->target_len,
-                        d->target,
-                        d->select_len,
-                        d->select);
-                #endif
+                return 1;
         }
 
-        if(l < (int)sizeof(cmd)) {
-                if(DEBUG_PRINT) {
-                        printf("CMD: %s\n", cmd);
-                }
-
-                system(cmd);
-        }
-
-        return 1;
+        return 0;
 }
 
 

@@ -1,6 +1,7 @@
 /test/stb/
 /test/unpkg
 /test/unpkg.exe
+/test/unpkg.obj
 premake5
 premake5.exe
 premake5.lua
