@@ -93,6 +93,6 @@ cl unpkg.c
 Additional work 
 
 
-| Author     | What | 
+| Who | What | 
 |------------|------|   
 | [Sean T.Barret](https://twitter.com/nothings) | [Stretch Buffer](https://github.com/nothings/stb/blob/master/stretchy_buffer.h) |
