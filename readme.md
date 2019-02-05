@@ -50,18 +50,11 @@ repo.
 
 ```toml
 [package-name]
-url = <http://where_to_get_pkg>
-type = <archive|git>
-select = <filename> # if you only want one file from the resource
-platform = <Windows|Linux|macOS> # If you only want this package on one platform
+url = "http://where_to_get_pkg" # Where to find the resource
+type = "git" # Can be git or archive
+select = "foo.json" # if you only want one file from the resource
+platform = "Windows" # This package is locked to this platform, `Linux` and `macOS` are also valid
 ```
-
-- A `type` can be `git`, or `archive`.
-- A `url` points to where the resources is.
-- `select` specifiy a single file you want from the `git` or `archive`
-- `select` is not valid if an archive is a single file.
-- `platform` can be `Windows`,`Linux`, or `macOS` (case sensitive).
-
 ## Issues
 
 - The TOML parsing needs work, it can be fooled easily.
