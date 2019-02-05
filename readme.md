@@ -49,11 +49,11 @@ repo.
 ## UNPKG Doc
 
 ```toml
-[package-name]
+[package-name]           # Pkg name, used to select pkg manually
 url = "http://where.com" # Where to find the resource
 type = "git"             # Can be git or archive
-select = "foo.json"      # if you only want one file from the resource
-platform = "Windows"     # Lock package to this platform, `Linux` and `macOS` are also valid
+select = "foo.json"      # Optional: if you only want one file from the resource
+platform = "Windows"     # Optional: Lock package to this platform, `Linux` and `macOS` are also valid
 ```
 ## Issues
 
