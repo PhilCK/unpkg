@@ -12,9 +12,9 @@ repo.
 
 ## What
 
+- Unpkg reads a config file, and calls the command line to setup your workspace.
 - Unpkg uses [TOML](https://github.com/toml-lang/toml) for data description.
 - Unpkg is C89 ish. Meaning I'm not 100%, but it works on the compilers I use.
-- Unpkg has no command line options.
 - Unpkg only looks for `unpkg.toml`, edit the source if you wish to change that.
 - Unpkg will `git clone <repo>`.
 - Unpkg will _not_ sync repos, you have todo that.
@@ -32,7 +32,8 @@ repo.
 - I don't like setup bash/bat scripts.
 - I don't like extra dependencies.
 - I don't like complex cmd line programs. 
-- I just want to easily setup a workspace, using the compiler I already have.
+- I want to easily setup a workspace, using the compiler I already have.
+- I want to control that workspace after setup.
 
 ## How
 
@@ -43,13 +44,15 @@ repo.
 - Start working.
 - If you edit something you got via `unpkg` you have to deal with it.
 - `unpkg <insert pkg name>` if you only want to process one item.
+- E.g `unpkg premake-bin-win`
 
 ## UNPKG Doc
 
 - A `type` can be `git`, or `archive`.
 - A `url` points to where the resources is.
+- `select` specifiy a single file you want from the `git` or `archive`
 - `select` is not valid if an archive is a single file.
-- `platform` can be `Windows`,`Linux`, or `macOS`.
+- `platform` can be `Windows`,`Linux`, or `macOS` (case sensitive).
 
 ## Issues
 
