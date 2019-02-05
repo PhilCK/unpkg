@@ -10,6 +10,48 @@
 #endif
 
 
+/* ------------------------------------------------------------- 3rd party -- */
+/*
+ *  STB's stretchy buffer.
+ *  https://github.com/nothings/stb/blob/master/stretchy_buffer.h
+ */
+
+#define sb_free   stb_sb_free
+#define sb_push   stb_sb_push
+#define sb_count  stb_sb_count
+#define sb_add    stb_sb_add
+#define sb_last   stb_sb_last
+
+#define stb_sb_free(a)         ((a) ? free(stb__sbraw(a)),0 : 0)
+#define stb_sb_push(a,v)       (stb__sbmaybegrow(a,1), (a)[stb__sbn(a)++] = (v))
+#define stb_sb_count(a)        ((a) ? stb__sbn(a) : 0)
+#define stb_sb_add(a,n)        (stb__sbmaybegrow(a,n), stb__sbn(a)+=(n), &(a)[stb__sbn(a)-(n)])
+#define stb_sb_last(a)         ((a)[stb__sbn(a)-1])
+
+#define stb__sbraw(a) ((int *) (a) - 2)
+#define stb__sbm(a)   stb__sbraw(a)[0]
+#define stb__sbn(a)   stb__sbraw(a)[1]
+
+#define stb__sbneedgrow(a,n)  ((a)==0 || stb__sbn(a)+(n) >= stb__sbm(a))
+#define stb__sbmaybegrow(a,n) (stb__sbneedgrow(a,(n)) ? stb__sbgrow(a,n) : 0)
+#define stb__sbgrow(a,n)      (*((void **)&(a)) = stb__sbgrowf((a), (n), sizeof(*(a))))
+
+static void * stb__sbgrowf(void *arr, int increment, int itemsize)
+{
+   int dbl_cur = arr ? 2*stb__sbm(arr) : 0;
+   int min_needed = stb_sb_count(arr) + increment;
+   int m = dbl_cur > min_needed ? dbl_cur : min_needed;
+   int *p = (int *) realloc(arr ? stb__sbraw(arr) : 0, itemsize * m + sizeof(int)*2);
+   if (p) {
+      if (!arr)
+         p[1] = 0;
+      p[0] = m;
+      return p+2;
+   } else {
+      return (void *) (2*sizeof(int)); // try to force a NULL pointer exception later
+   }
+}
+
 /* ---------------------------------------------------------------- Config -- */
 /* 
  * Platform and configuration settings etc.
@@ -321,7 +363,7 @@ parse_file(
 
 int
 cmd(const char * cmd) {
-        FILE *pipe = popen(cmd, "rt");
+        FILE *pipe = popen(cmd, "r");
         int success = 0;
 
         char buf[1024] = {0};
@@ -330,9 +372,9 @@ cmd(const char * cmd) {
                 while(fgets(buf, sizeof(buf), pipe) != NULL) {
                         success = 1;
                 }
-        }
 
-        pclose(pipe);
+                pclose(pipe);
+        }
 
         return success;
 };
@@ -493,9 +535,6 @@ download(
 
         printf("Downloading %.*s\n", d->name_len, d->name);
 
-        char cmd[4096] = {0};
-        int l = 0;
-
         /* download */
         if(!d->select) {
                 return cmd_curl(d->url, d->url_len);  
@@ -621,6 +660,9 @@ git_clone(
 /* ----------------------------------------------------------- Application -- */
 
 
+struct setpkg_data *pkgs = {0};
+
+
 int
 main(
         int argc, 
@@ -642,6 +684,7 @@ main(
         /* setup */
         fflush(stdout);
         freopen("/dev/null", "w", stderr);
+        setvbuf(stdout, NULL, _IONBF, 0);
 
         /* call help to check if programs exist */
         has_git = cmd("git --help");
@@ -653,12 +696,6 @@ main(
         printf("Has cURL %s\n", has_curl ? "YES" : "NO");
         printf("Has Tar %s\n", has_tar ? "YES" : "NO");
         printf("Has UnZip %s\n", has_unzip ? "YES" : "NO");
-
-        fflush(stdout);
-        //setvbuf(NULL, NULL, _IONBF, 0);
-
-        setvbuf(stdout, NULL, _IONBF, 0);
-        fflush(stdout);
 
         /* open */
         FILE *f = fopen("unpkg.toml", "rb");
@@ -691,66 +728,97 @@ main(
         /* parse */
         char *curr = buf;
         struct ast_node n;
-        struct setpkg_data pkg = {0};
+        int curr_pkg = -1;
+
+        /* parse the TOML file */
+        printf("\n--[Unpkg:Parse]--\n\n");
 
         while(1) {
                 int parsed = parse_file(&n, &curr);
 
                 /* new table or about to quit */
                 /* if quitting we might have a pending table to process */
-                if(n.type == AST_TABLE || (!parsed && pkg.name_len)) {
-                        /* is pkg ready */
-                        if(pkg.name_len && strncmp(pkg.platform, platform, pkg.platform_len) == 0) {
-                                if(!target_tab || strncmp(pkg.name, target_tab, pkg.name_len) == 0) {
-                                        if(DEBUG_PRINT) {
-                                                const char *fmt = "process tab %.*s\n";
-                                                printf(fmt, pkg.name_len, pkg.name);
-                                        }
+                if(n.type == AST_TABLE) {
+                        struct setpkg_data pkg = {0};
+                        sb_push(pkgs, pkg);
 
-                                        const char *type = pkg.type;
-                                        int len = pkg.type_len;
+                        curr_pkg += 1;
 
-                                        if(strncmp(type, "git", len) == 0) {
-                                                git_clone(&pkg);
-                                        }
-                                        else if(strncmp(type, "archive", len) == 0) {
-                                                download(&pkg);
-                                        }
-                                }
-                        }
-
-                        memset(&pkg, 0, sizeof(pkg));
-
-                        pkg.name = n.tab.str;
-                        pkg.name_len = n.tab.len;
+                        pkgs[curr_pkg].name = n.tab.str;
+                        pkgs[curr_pkg].name_len = n.tab.len;
+                        
                 }
                 else if(n.type == AST_KEY_VALUE) {
-                        if(strncmp(n.kv.key, "url", n.kv.key_len) == 0) {
-                                pkg.url = n.kv.value;
-                                pkg.url_len = n.kv.value_len;
+                        const char *key = n.kv.key;
+                        int key_len = n.kv.key_len;
+
+                        if(strncmp(key, "url", key_len) == 0) {
+                                pkgs[curr_pkg].url = n.kv.value;
+                                pkgs[curr_pkg].url_len = n.kv.value_len;
                         }
-                        else if(strncmp(n.kv.key, "type", n.kv.key_len) == 0) {
-                                pkg.type = n.kv.value;
-                                pkg.type_len = n.kv.value_len;
+                        else if(strncmp(key, "type", key_len) == 0) {
+                                pkgs[curr_pkg].type = n.kv.value;
+                                pkgs[curr_pkg].type_len = n.kv.value_len;
                         }
-                        else if(strncmp(n.kv.key, "target", n.kv.key_len) == 0) {
-                                pkg.target = n.kv.value;
-                                pkg.target_len = n.kv.value_len;
+                        else if(strncmp(key, "target", key_len) == 0) {
+                                pkgs[curr_pkg].target = n.kv.value;
+                                pkgs[curr_pkg].target_len = n.kv.value_len;
                         }
-                        else if(strncmp(n.kv.key, "select", n.kv.key_len) == 0) {
-                                pkg.select = n.kv.value;
-                                pkg.select_len = n.kv.value_len;
+                        else if(strncmp(key, "select", key_len) == 0) {
+                                pkgs[curr_pkg].select = n.kv.value;
+                                pkgs[curr_pkg].select_len = n.kv.value_len;
                         }
-                        else if(strncmp(n.kv.key, "platform", n.kv.key_len) == 0) {
-                                pkg.platform = n.kv.value;
-                                pkg.platform_len = n.kv.value_len;
+                        else if(strncmp(key, "platform", key_len) == 0) {
+                                pkgs[curr_pkg].platform = n.kv.value;
+                                pkgs[curr_pkg].platform_len = n.kv.value_len;
                         }
                 }
 
                 if(!parsed) {
                         break;
                 }
+                
         }
+
+        printf("Done\n");
+
+        /* get the packages */
+        int i;
+        int count = sb_count(pkgs);
+
+        for(i = 0; i < count; ++i) {
+                
+                /* if target table has an os preference */
+                if(pkgs[i].platform) {
+                        const char *pk_plat = pkgs[i].platform;
+                        const char *th_plat = platform;
+
+                        if(strncmp(pk_plat, th_plat, strlen(th_plat) != 0)) {
+                                continue;
+                        }
+                }
+
+                /* if we have a target table */
+                if(target_tab) {
+                        const char *th_tab = target_tab;
+                        const char *pk_tab = pkgs[i].name;
+                        int pk_len = pkgs[i].name_len;
+
+                        if(strncmp(th_tab, pk_tab, pk_len) != 0) {
+                                continue;
+                        }
+                }
+
+                const char *type = pkgs[i].type;
+                int len = pkgs[i].type_len;
+                                
+                if(strncmp(type, "git", len) == 0) {
+                        git_clone(&pkgs[i]);
+                }
+                else if(strncmp(type, "archive", len) == 0) {
+                        download(&pkgs[i]);
+                }
+        };
 
         printf("\n--[Unpkg:Done]--\n\n");
 
