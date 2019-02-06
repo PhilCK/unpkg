@@ -1,6 +1,15 @@
 # Test Workspace
 
 
+# Example 
+# [dependency-name]
+# url = http://www.where-to-find-resource
+# type = "git" or "archive"
+# select = "single_file.c"
+# target = "directory_where_we_want_dependency"
+# platform = "Windows" or "macOS" or "Linux"
+
+
 # Simple download a repo 
 [stb-utils]
 url = "https://github.com/nothings/stb.git"
@@ -24,10 +33,10 @@ select = "json.h"
 
 # Premake for OSX only
 [premake-bin-osx]
-url = "https://github.com/premake/premake-core/releases/download/v5.0.0-alpha13/premake-5.0.0-alpha13-macosx.tar.gz" # Resource URL
-type = "archive" # Resource Type
-select = "premake5" # Select premake5
-platform = "macOS" # Only on MacOS
+url = "https://github.com/premake/premake-core/releases/download/v5.0.0-alpha13/premake-5.0.0-alpha13-macosx.tar.gz"
+type = "archive"
+select = "premake5"
+platform = "macOS"
 
 
 # Premake for Linux only
