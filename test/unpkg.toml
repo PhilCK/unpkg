@@ -9,7 +9,8 @@ type = "git"
 
 # Premake
 
-[premake-bin-osx] # Table Name
+
+[premake-bin-osx]
 url = "https://github.com/premake/premake-core/releases/download/v5.0.0-alpha13/premake-5.0.0-alpha13-macosx.tar.gz" # Resource URL
 type = "archive" # Resource Type
 select = "premake5" # Select premake5

@@ -1,14 +1,12 @@
 # UNPKG
 
-Single file lib to help setup workspaces without to much effort. This is a
-very minimal library it will not do syncing or even any checking. It requires
-that you have already got installed the components it needs (E.g. git).
-It will use platform provided utils where available (E.g curl).
+This library helps setup those annoying bits of a project workspaces.
+You can specify what binaries or repos you need for you application in a
+configuration file, call `unpkg` and it fetch those things.
 
-Basically for a given project I will likely have some binary data, some
-3rdparty code, and or some setup information that I don't want in the main
-git repo, for example a premake executable, or bulid script, or a 3rd party
-repo.
+Actually Unpkg does very little other than generate command line arguments for
+you, so if you wish to clone a repo with git you need to have git installed in
+the prompt you are calling Unpkg from.
 
 ## What
 
@@ -55,10 +53,10 @@ type = "git"             # Can be git or archive
 select = "foo.json"      # Optional: if you only want one file from the resource
 platform = "Windows"     # Optional: Lock package to this platform, `Linux` and `macOS` are also valid
 ```
+
 ## Issues
 
 - Some issues with parsing.
-- No duplicate table checks.
 - Only supports unix style endings currently `\n`.
 - Can only select a single file currently. BOO!
 - Very untested.
@@ -92,9 +90,6 @@ cl unpkg.c
 ```
 
 ## Credits
-
-Additional work 
-
 
 | Who | What | 
 |-----|------|   

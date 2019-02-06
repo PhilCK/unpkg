@@ -64,6 +64,7 @@ static void * stb__sbgrowf(void *arr, int increment, int itemsize)
 #endif
 
 
+/* Some extra info, not needed for day to day dev */
 #ifndef DEBUG_PRINT_EXTRA_PARSE
 #define DEBUG_PRINT_EXTRA_PARSE 0
 #endif
@@ -738,10 +739,11 @@ main(
         has_tar = cmd("tar --help");
         has_unzip = cmd("unzip -h");
 
-        printf("Has Git %s\n", has_git ? "YES" : "NO");
-        printf("Has cURL %s\n", has_curl ? "YES" : "NO");
-        printf("Has Tar %s\n", has_tar ? "YES" : "NO");
-        printf("Has UnZip %s\n", has_unzip ? "YES" : "NO");
+        printf("Has Git: %s\n", has_git ? "YES" : "NO");
+        printf("Has cURL: %s\n", has_curl ? "YES" : "NO");
+        printf("Has Tar: %s\n", has_tar ? "YES" : "NO");
+        printf("Has UnZip: %s\n", has_unzip ? "YES" : "NO");
+        printf("Platform: %s\n", platform);
 
         /* open */
         FILE *f = fopen(pkg_file, "rb");
