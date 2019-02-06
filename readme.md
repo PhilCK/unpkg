@@ -94,3 +94,8 @@ cl unpkg.c
 | Who | What | 
 |-----|------|   
 | [Sean T.Barret](https://twitter.com/nothings) | [Stretch Buffer](https://github.com/nothings/stb/blob/master/stretchy_buffer.h) |
+
+
+## License
+
+MIT
