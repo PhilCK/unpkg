@@ -414,6 +414,25 @@ cmd_mkdir_tmp() {
 
 
 int
+cmd_mkdir(const char *dir, int dir_len) {
+        char buf[4096] = {0};
+        snprintf(
+                buf,
+                sizeof(buf),
+                #ifndef _WIN32
+                "mkdir -v -p %.*s",
+                #else
+                "mkdir %.*s",
+                #endif
+                dir_len,
+                dir);
+
+        int ret = cmd(buf);
+        return ret;
+}
+
+
+int
 cmd_curl(const char *url, int url_len) {
         char buf[4096] = {0};
 
@@ -550,15 +569,20 @@ cmd_rm_tmp_file() {
 
 
 int
-cmd_git_clone(const char *url, int url_len) {
+cmd_git_clone(const char *url, int url_len, const char *target, int target_len) {
         char buf[4096] = {0};
+
+        const char * clone_tg = target ? target : "";
+        int clone_tg_len = target ? target_len : 0;
 
         snprintf(
                 buf,
                 sizeof(buf),
-                "git clone %.*s",
+                "git clone %.*s %.*s",
                 url_len,
-                url);
+                url,
+                clone_tg_len,
+                clone_tg);
 
         int ret = cmd(buf);
         return ret;
@@ -637,6 +661,9 @@ download(
 
                         d->target_len = strlen(d->target);
                 }
+                else {
+                        cmd_mkdir(d->target, d->target_len);
+                }
 
                 cmd_rm_tmp_dir();
                 cmd_mkdir_tmp();
@@ -676,7 +703,7 @@ git_clone(
         char cmd[4096] = {0};
 
         if(!d->select) {
-                return cmd_git_clone(d->url, d->url_len);
+                return cmd_git_clone(d->url, d->url_len, d->target, d->target_len);
         }
         else {
                 if(!d->target) {
@@ -687,6 +714,9 @@ git_clone(
                         #endif
 
                         d->target_len = strlen(d->target);
+                }
+                else {
+                        cmd_mkdir(d->target, d->target_len);
                 }
 
                 cmd_rm_tmp_dir();
@@ -814,6 +844,10 @@ main(
                         else if(strncmp(key, "platform", key_len) == 0) {
                                 pkgs[curr_pkg].platform = n.kv.value;
                                 pkgs[curr_pkg].platform_len = n.kv.value_len;
+                        }
+                        else if(strncmp(key, "target", key_len) == 0) {
+                                pkgs[curr_pkg].target = n.kv.value;
+                                pkgs[curr_pkg].target_len = n.kv.value_len;
                         }
                 }
 

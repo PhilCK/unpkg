@@ -1,15 +1,28 @@
-
 # Test Workspace
 
 
+# Simple download a repo 
 [stb-utils]
 url = "https://github.com/nothings/stb.git"
 type = "git"
 
 
-# Premake
+# Target a repo to a particular directory
+[nebula]
+url = "https://github.com/PlainOldData/nebula"
+type = "git"
+target = "./3rdparty/nebula"
 
 
+# Select a file from repo and copy to target directory
+[json]
+url = "https://github.com/sheredom/json.h"
+type = "git"
+target = "./3rdparty/json"
+select = "json.h"
+
+
+# Premake for OSX only
 [premake-bin-osx]
 url = "https://github.com/premake/premake-core/releases/download/v5.0.0-alpha13/premake-5.0.0-alpha13-macosx.tar.gz" # Resource URL
 type = "archive" # Resource Type
@@ -17,6 +30,7 @@ select = "premake5" # Select premake5
 platform = "macOS" # Only on MacOS
 
 
+# Premake for Linux only
 [premake-bin-linux]
 url = "https://github.com/premake/premake-core/releases/download/v5.0.0-alpha13/premake-5.0.0-alpha13-linux.tar.gz"
 type = "archive"
@@ -24,6 +38,7 @@ select = "premake5"
 platform = "Linux"
 
 
+# Premake for Windows only
 [premake-bin-win]
 url = "https://github.com/premake/premake-core/releases/download/v5.0.0-alpha13/premake-5.0.0-alpha13-windows.zip"
 type = "archive"
@@ -31,6 +46,7 @@ select = "premake5.exe"
 platform = "Windows"
 
 
+# Select a file from a git repo 
 [premake-data]
 url = "https://github.com/PlainOldData/premake_data.git"
 type = "git"

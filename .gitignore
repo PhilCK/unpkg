@@ -2,6 +2,7 @@
 /test/unpkg
 /test/unpkg.exe
 /test/unpkg.obj
+/test/3rdparty
 premake5
 premake5.exe
 premake5.lua
