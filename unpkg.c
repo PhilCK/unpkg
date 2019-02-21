@@ -53,7 +53,7 @@ static void * stb__sbgrowf(void *arr, int increment, int itemsize)
 }
 
 /* ---------------------------------------------------------------- Config -- */
-/* 
+/*
  * Platform and configuration settings etc.
  */
 
@@ -114,7 +114,8 @@ is_whitespace(char c) {
         if(c == '\t') { return 1; }
         if(c == ' ')  { return 1; }
         if(c == '\b') { return 1; }
-        
+        if(c == '\r') { return 1; }
+
         return 0;
 }
 
@@ -165,7 +166,7 @@ starts_with_char(const char *str, char c) {
 
         while(str[offset] != '\n' && is_whitespace(str[offset])) { ++offset; }
 
-        return str[offset] == c ? 1 : 0;  
+        return str[offset] == c ? 1 : 0;
 }
 
 
@@ -189,10 +190,10 @@ starts_with_alpha(const char *str) {
                 if(is_whitespace(str[offset])) {
                         continue;
                 }
-
                 if(is_alpha(str[offset])) {
                         return 1;
                 }
+                offset += 1;
         }
 
         return 0;
@@ -206,6 +207,7 @@ only_whitespace(const char *str) {
                 if(!is_whitespace(str[offset])) {
                         return 0;
                 }
+                offset += 1;
         }
 
         return 1;
@@ -351,7 +353,7 @@ parse_file(
                         printf("Chomp!\n");
                 }
         }
-        
+
         *n = node;
 
         /* swallow line */
@@ -545,7 +547,7 @@ cmd_rm_tmp_dir() {
                 );
 
         int ret = cmd(buf);
-        return ret; 
+        return ret;
 }
 
 
@@ -564,7 +566,7 @@ cmd_rm_tmp_file() {
                 );
 
         int ret = cmd(buf);
-        return ret; 
+        return ret;
 }
 
 
@@ -613,7 +615,7 @@ cmd_git_clone_tmp(const char *url, int url_len) {
 /*
  * Features of Unpkg, these are the actions that need to be performed from a
  * unpkg.toml file.
- */ 
+ */
 
 
 struct pkg_data {
@@ -647,7 +649,7 @@ download(
 
         /* download */
         if(!d->select) {
-                return cmd_curl(d->url, d->url_len);  
+                return cmd_curl(d->url, d->url_len);
         }
         else {
                 int is_zip = strncmp("zip", &d->url[d->url_len - 3], 3) == 0;
@@ -740,7 +742,7 @@ struct pkg_data *pkgs = {0};
 
 int
 main(
-        int argc, 
+        int argc,
         const char **argv)
 {
         printf("\n--[Unpkg:Env]--\n\n");
@@ -786,7 +788,7 @@ main(
         /* read */
         fseek(f, 0 , SEEK_END);
         long size = ftell(f);
-        fseek(f, 0, SEEK_SET); 
+        fseek(f, 0, SEEK_SET);
 
         if(!size) {
                 printf("File empty\n");
@@ -823,7 +825,7 @@ main(
 
                         pkgs[curr_pkg].name = n.tab.str;
                         pkgs[curr_pkg].name_len = n.tab.len;
-                        
+
                 }
                 else if(n.type == AST_KEY_VALUE) {
                         const char *key = n.kv.key;
@@ -854,7 +856,7 @@ main(
                 if(!parsed) {
                         break;
                 }
-                
+
         }
 
         /* validate */
@@ -934,7 +936,7 @@ main(
 
                 const char *type = pkgs[i].type;
                 int len = pkgs[i].type_len;
-                                
+
                 if(strncmp(type, "git", len) == 0) {
                         git_clone(&pkgs[i]);
                 }
